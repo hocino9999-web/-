@@ -1,0 +1,189 @@
+{
+  "entities": {
+    "Message": {
+      "title": "Message",
+      "description": "A guestbook message left by visitors to Hoshino Yangyang's Tour Guide Platform",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the visitor posting the message"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the guest message"
+        },
+        "content": {
+          "type": "string",
+          "description": "Content body of the guest message"
+        },
+        "rating": {
+          "type": "integer",
+          "description": "Rating score out of 5 stars"
+        },
+        "avatarEmoji": {
+          "type": "string",
+          "description": "Emoji character for the avatar"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when message was created"
+        },
+        "category": {
+          "type": "string",
+          "description": "Message category tag"
+        },
+        "reply": {
+          "type": "string",
+          "description": "Admin response reply text"
+        },
+        "replyAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when admin reply was made"
+        }
+      },
+      "required": ["name", "title", "content", "rating", "avatarEmoji", "createdAt", "category"]
+    },
+    "Article": {
+      "title": "Article",
+      "description": "A written article/blog post about Kaohsiung history or tour notes",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Title of the article"
+        },
+        "category": {
+          "type": "string",
+          "description": "Category or topic of the article"
+        },
+        "content": {
+          "type": "string",
+          "description": "Full content body of the article"
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of the cover image"
+        },
+        "date": {
+          "type": "string",
+          "description": "Published date"
+        },
+        "likes": {
+          "type": "integer",
+          "description": "Number of likes"
+        },
+        "hearts": {
+          "type": "integer",
+          "description": "Number of hearts"
+        },
+        "views": {
+          "type": "integer",
+          "description": "Number of views"
+        },
+        "author": {
+          "type": "string",
+          "description": "Author of the article"
+        }
+      },
+      "required": ["title", "category", "content", "imageUrl", "date"]
+    },
+    "Video": {
+      "title": "Video",
+      "description": "A featured video about Kaohsiung history or personal vlogs with YouTube embed",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Title of the video"
+        },
+        "videoId": {
+          "type": "string",
+          "description": "YouTube video 11-char ID"
+        },
+        "series": {
+          "type": "string",
+          "description": "Series grouping name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the video content"
+        },
+        "date": {
+          "type": "string",
+          "description": "Publish date"
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of the thumbnail image"
+        },
+        "views": {
+          "type": "integer",
+          "description": "Number of views"
+        },
+        "likes": {
+          "type": "integer",
+          "description": "Number of likes"
+        },
+        "hearts": {
+          "type": "integer",
+          "description": "Number of hearts"
+        }
+      },
+      "required": ["title", "videoId", "series", "description", "date", "imageUrl"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "A customized tour booking request submitted by a visitor",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Client name" },
+        "phone": { "type": "string", "description": "Client phone number" },
+        "email": { "type": "string", "description": "Client email address" },
+        "lineId": { "type": "string", "description": "Client LINE ID" },
+        "organization": { "type": "string", "description": "Client organization or school" },
+        "date": { "type": "string", "description": "Preferred tour date" },
+        "altDate1": { "type": "string", "description": "Alternative date option 1" },
+        "altDate2": { "type": "string", "description": "Alternative date option 2" },
+        "startTime": { "type": "string", "description": "Preferred starting time" },
+        "endTime": { "type": "string", "description": "Preferred ending time" },
+        "partySizeRange": { "type": "string", "description": "Number of participants category" },
+        "customPartySize": { "type": "string", "description": "Actual number of people if above limit" },
+        "targetAudience": { "type": "array", "description": "Target demographics" },
+        "districts": { "type": "array", "description": "Target regions of Kaohsiung" },
+        "themes": { "type": "array", "description": "Selected topics of interest" },
+        "duration": { "type": "string", "description": "Tour duration option" },
+        "language": { "type": "string", "description": "Tour language" },
+        "meetingPoint": { "type": "string", "description": "Client selected meeting point" },
+        "customMeetingPoint": { "type": "string", "description": "Self-filled meeting point location" },
+        "specialNeeds": { "type": "array", "description": "List of special accessibility or photography requests" },
+        "notes": { "type": "string", "description": "Client comments or custom itinerary requests" },
+        "agreed": { "type": "boolean", "description": "Whether client agreed to reservation conditions" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Booking submission timestamp" },
+        "status": { "type": "string", "description": "Booking state: 待確認, 已確認, 已取消" },
+        "routeTitle": { "type": "string", "description": "Preselected or chosen walk route name" }
+      },
+      "required": ["name", "phone", "email", "date", "startTime", "endTime", "partySizeRange", "duration", "language", "meetingPoint", "agreed", "createdAt", "status", "routeTitle"]
+    }
+  },
+  "firestore": {
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Store all guest messages and administrative responses"
+    },
+    "/articles/{articleId}": {
+      "schema": "Article",
+      "description": "Store official tour notes and articles written by Hoshino"
+    },
+    "/videos/{videoId}": {
+      "schema": "Video",
+      "description": "Store YouTube video recommendations and history vlogs"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Store customized tour booking applications and their verification status"
+    }
+  }
+}

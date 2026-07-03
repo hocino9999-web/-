@@ -1,0 +1,6 @@
+{
+  "name": "星野洋洋的導覽筆記",
+  "description": "探索高雄歷史、文化導覽、城市故事的個人筆記與走讀行程平台。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

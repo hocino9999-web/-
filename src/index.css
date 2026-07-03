@@ -1,0 +1,23 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+/* Fix for Leaflet tile positioning and touch actions under iframe environment */
+.leaflet-container {
+  touch-action: pan-x pan-y !important;
+  z-index: 1;
+}
+
+/* Ensure Leaflet controls are above custom elements but don't intercept mouse if hidden */
+.leaflet-control-container {
+  z-index: 10;
+}
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', 'Noto Serif TC', system-ui, -apple-system, sans-serif;
+  }
+
+  h1, h2, h3, h4, .font-serif {
+    font-family: 'Noto Serif TC', Georgia, serif;
+  }
+}
