@@ -9,6 +9,7 @@ import CMSPanel from './components/CMSPanel';
 import ChatBot from './components/ChatBot';
 import HistoryMap from './components/HistoryMap';
 import { BookOpen, Map, Calendar, MessageSquare, Shield, Compass, Heart, Share2, Plus, Star, AlertCircle, Trash2, Youtube, Eye, ThumbsUp, X, User as UserIcon, Edit, Save, CheckCircle2, ArrowRight, Search } from 'lucide-react';
+import { convertGoogleDriveUrl } from './utils';
 
 const INITIAL_VIDEOS: Video[] = [
   {
@@ -767,7 +768,7 @@ export default function App() {
                       >
                         <div>
                           <div className="h-44 w-full bg-stone-100 overflow-hidden relative border-b border-stone-100">
-                            <img src={note.imageUrl} alt={note.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            <img src={convertGoogleDriveUrl(note.imageUrl)} alt={note.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                             <span className="absolute top-3 left-3 bg-amber-800 text-amber-50 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-sm shadow-sm">
                               {note.category}
                             </span>
@@ -1049,12 +1050,12 @@ export default function App() {
                           <div>
                             <span className="text-stone-500">LINE 帳號：</span>
                             <a
-                              href="https://line.me/ti/p/~b12373"
+                              href="https://line.me/R/ti/p/%40927rxant"
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-amber-800 hover:underline hover:text-amber-950 font-mono font-bold"
                             >
-                              b12373
+                              @927rxant
                             </a>
                           </div>
                         </li>
@@ -1163,7 +1164,7 @@ export default function App() {
                     <div>
                       {/* Cover image */}
                       <div className="h-56 w-full relative">
-                        <img src={note.imageUrl} alt={note.title} className="w-full h-full object-cover" />
+                        <img src={convertGoogleDriveUrl(note.imageUrl)} alt={note.title} className="w-full h-full object-cover" />
                         <span className="absolute top-4 left-4 bg-amber-800 text-amber-50 text-xs font-bold px-3 py-1.5 rounded-full shadow-md">
                           {note.category}
                         </span>
@@ -1891,7 +1892,7 @@ export default function App() {
             <div className="overflow-y-auto flex-1 text-left">
               {/* Header inside scrollable space */}
               <div className="relative h-64 md:h-80 w-full shrink-0">
-                <img src={selectedArticle.imageUrl} alt={selectedArticle.title} className="w-full h-full object-cover" />
+                <img src={convertGoogleDriveUrl(selectedArticle.imageUrl)} alt={selectedArticle.title} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
                 <div className="absolute bottom-6 left-6 right-6 text-white text-left">
                   <span className="bg-amber-800 text-amber-50 text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full shadow-md inline-block mb-2">

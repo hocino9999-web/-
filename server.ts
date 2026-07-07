@@ -14,6 +14,50 @@ app.use(express.json());
 const publicPath = path.join(process.cwd(), 'dist');
 app.use(express.static(publicPath));
 
+// API Endpoint to proxy Google Drive images and bypass browser iframe / 403 blocks
+app.get('/api/drive-image', async (req, res) => {
+  const fileId = req.query.id;
+  if (!fileId || typeof fileId !== 'string') {
+    return res.status(400).json({ error: 'Google Drive File ID is required.' });
+  }
+
+  // Try multiple Google Drive CDN endpoints to find the most compatible one
+  const urlsToTry = [
+    `https://lh3.googleusercontent.com/d/${fileId}`,
+    `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`,
+    `https://drive.google.com/uc?export=download&id=${fileId}`
+  ];
+
+  for (const driveUrl of urlsToTry) {
+    try {
+      // Fetch from Google Drive CDN server-side
+      const response = await fetch(driveUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      });
+
+      if (response.ok) {
+        const contentType = response.headers.get('content-type') || 'image/png';
+        
+        // Set headers for caching and content type
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        return res.send(buffer);
+      } else {
+        console.warn(`Drive URL ${driveUrl} returned status ${response.status}`);
+      }
+    } catch (err) {
+      console.warn(`Failed to fetch from ${driveUrl}:`, err);
+    }
+  }
+
+  return res.status(500).json({ error: 'Failed to retrieve image from all Google Drive CDN sources. Please ensure the file is shared as "Anyone with link can view".' });
+});
+
 // API Endpoint for Gemini AI Chatbot
 app.post('/api/chat', async (req, res) => {
   try {
@@ -70,6 +114,13 @@ app.post('/api/chat', async (req, res) => {
       error: error instanceof Error ? error.message : String(error)
     });
   }
+});
+
+// Dynamic route to handle Google Search Console HTML File verification
+app.get('/google*.html', (req, res) => {
+  const filename = path.basename(req.path);
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`google-site-verification: ${filename}`);
 });
 
 // Fallback to index.html for React SPA Routing

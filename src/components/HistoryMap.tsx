@@ -3,6 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { TourNote } from '../types';
 import { MapPin, Search, Compass, BookOpen, ArrowRight, HelpCircle, Eye, Star } from 'lucide-react';
+import { convertGoogleDriveUrl } from '../utils';
 
 interface HistoryMapProps {
   dbArticles: TourNote[];
@@ -419,7 +420,7 @@ export default function HistoryMap({ dbArticles, onSelectArticle, onSearchArticl
           {/* Spot Image */}
           <div className="h-40 sm:h-44 w-full relative shrink-0 bg-stone-100 border-b border-stone-200">
             <img 
-              src={selectedSpot.imageUrl} 
+              src={convertGoogleDriveUrl(selectedSpot.imageUrl)} 
               alt={selectedSpot.name} 
               className="w-full h-full object-cover" 
               referrerPolicy="no-referrer"

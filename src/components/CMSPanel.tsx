@@ -3,7 +3,8 @@ import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { collection, onSnapshot, doc, deleteDoc, updateDoc, addDoc, query, orderBy, Timestamp } from 'firebase/firestore';
 import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { Message } from '../types';
-import { Trash2, Reply, ShieldAlert, CheckCircle, AlertTriangle, Key, LogOut, MessageSquare, Compass, ShieldCheck, Youtube, FileText, Plus, Eye, Heart, ThumbsUp, Calendar, Users, MapPin, Clock, Sparkles, Pencil, Search, Download } from 'lucide-react';
+import { Trash2, Reply, ShieldAlert, CheckCircle, AlertTriangle, Key, LogOut, MessageSquare, Compass, ShieldCheck, Youtube, FileText, Plus, Eye, Heart, ThumbsUp, Calendar, Users, MapPin, Clock, Sparkles, Pencil, Search, Download, Upload, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { convertGoogleDriveUrl, compressAndResizeImage } from '../utils';
 
 function extractYouTubeId(url: string): string {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -40,6 +41,8 @@ export default function CMSPanel() {
   const [artContent, setArtContent] = useState('');
   const [isPostingArt, setIsPostingArt] = useState(false);
   const [editingArticleId, setEditingArticleId] = useState<string | null>(null);
+  const [isUploadingArtImg, setIsUploadingArtImg] = useState(false);
+  const [artImgUploadError, setArtImgUploadError] = useState<string | null>(null);
 
   // Video Form States
   const [vidTitle, setVidTitle] = useState('');
@@ -268,6 +271,28 @@ export default function CMSPanel() {
     }
   };
 
+  // Handle Article Image File Selection and Base64 Compression
+  const handleArtImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingArtImg(true);
+    setArtImgUploadError(null);
+
+    try {
+      // Compress to max 1024px and JPEG quality 0.75 for direct local persistence in Firestore
+      const compressedBase64 = await compressAndResizeImage(file, 1024, 0.75);
+      setArtImageUrl(compressedBase64);
+      showStatus('圖片上傳並優化成功！已轉為內嵌格式儲存。', 'success');
+    } catch (err: any) {
+      console.error('Failed to compress image:', err);
+      setArtImgUploadError(err.message || '圖片處理失敗，請重試。');
+      showStatus(err.message || '圖片處理失敗，請確認檔案類型。', 'error');
+    } finally {
+      setIsUploadingArtImg(false);
+    }
+  };
+
   // Add Article Event
   const handleAddArticle = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -282,7 +307,8 @@ export default function CMSPanel() {
 
     setIsPostingArt(true);
     const docPath = editingArticleId ? `articles/${editingArticleId}` : 'articles';
-    const finalImageUrl = artImageUrl.trim() || 'https://images.unsplash.com/photo-1596492784531-6e6eb5ea9993?auto=format&fit=crop&w=800&q=80';
+    const processedUrl = convertGoogleDriveUrl(artImageUrl.trim());
+    const finalImageUrl = processedUrl || 'https://images.unsplash.com/photo-1596492784531-6e6eb5ea9993?auto=format&fit=crop&w=800&q=80';
 
     try {
       if (editingArticleId) {
@@ -1127,15 +1153,99 @@ export default function CMSPanel() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-stone-500 mb-1.5">封面圖片網址 (選填，留空將使用默認典雅圖)</label>
-                  <input
-                    type="url"
-                    value={artImageUrl}
-                    onChange={(e) => setArtImageUrl(e.target.value)}
-                    placeholder="https://images.unsplash.com/..."
-                    className="w-full bg-white border border-stone-200 focus:border-amber-700 rounded-xl px-4 py-2.5 text-sm outline-none transition-all"
-                  />
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <label className="block text-xs font-bold text-stone-500">封面圖片 (可直接上傳本機 PNG/JPG 檔案，或填寫網址)</label>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-stone-50 p-4 rounded-2xl border border-stone-200">
+                    {/* Left side: Local Upload */}
+                    <div className="flex flex-col justify-center items-center p-4 border border-dashed border-stone-300 rounded-xl bg-white hover:bg-stone-50/50 transition-colors relative group min-h-[120px]">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleArtImageUpload}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        disabled={isUploadingArtImg}
+                      />
+                      
+                      {isUploadingArtImg ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <Loader2 className="w-8 h-8 text-amber-700 animate-spin" />
+                          <span className="text-xs text-stone-500 font-medium animate-pulse">正在優化與上傳圖片...</span>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center text-center gap-2">
+                          <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-800 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <Upload className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <span className="text-xs font-bold text-amber-900 block">上傳本機圖片 (PNG / JPG)</span>
+                            <span className="text-[11px] text-stone-400 block mt-0.5">點擊或拖曳檔案至此，系統將自動最佳化並儲存</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right side: URL Input & Preview */}
+                    <div className="flex flex-col justify-between gap-3">
+                      <div>
+                        <span className="text-xs font-bold text-stone-500 block mb-1">或是貼上圖片網址：</span>
+                        <input
+                          type="url"
+                          value={artImageUrl}
+                          onChange={(e) => setArtImageUrl(e.target.value)}
+                          placeholder="https://images.unsplash.com/... 或貼上雲端硬碟連結"
+                          className="w-full bg-white border border-stone-200 focus:border-amber-700 rounded-xl px-3 py-2 text-xs outline-none transition-all"
+                        />
+                      </div>
+
+                      {artImageUrl ? (
+                        <div className="flex items-center gap-2 bg-amber-50/50 border border-amber-100/80 rounded-xl p-2 min-h-[50px]">
+                          {/* Image preview thumbnail */}
+                          <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 border border-amber-200 bg-stone-100 relative group/preview">
+                            <img
+                              src={convertGoogleDriveUrl(artImageUrl)}
+                              alt="Preview"
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1596492784531-6e6eb5ea9993?auto=format&fit=crop&w=800&q=80';
+                              }}
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <span className="text-[10px] text-amber-900 font-bold block">圖片預覽</span>
+                            <span className="text-[9px] text-stone-400 truncate block">
+                              {artImageUrl.startsWith('data:') ? '已成功載入自訂上傳圖片 (Base64)' : artImageUrl}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setArtImageUrl('')}
+                            className="text-stone-400 hover:text-red-600 p-1 rounded-lg hover:bg-stone-100 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 bg-stone-100/50 border border-stone-200/50 rounded-xl p-2 text-stone-400 text-[11px] justify-center min-h-[50px] italic">
+                          目前使用默認典雅圖
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {artImgUploadError && (
+                    <div className="p-2.5 bg-red-50 border border-red-100 rounded-xl text-xs text-red-600 flex items-center gap-1.5">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      <span>{artImgUploadError}</span>
+                    </div>
+                  )}
+
+                  <p className="mt-1.5 text-xs text-stone-400 flex items-center gap-1 leading-normal">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0 animate-pulse" />
+                    <span>支援貼上 <strong>Google 雲端硬碟連結</strong>（系統會自動轉換）；或是<strong>點擊左側直接上傳您的 PNG / JPG 檔案</strong>，這是最不易出錯且 100% 成功顯示的推薦方式！</span>
+                  </p>
                 </div>
 
                 <div>
@@ -1194,7 +1304,7 @@ export default function CMSPanel() {
                   {dbArticles.map((art) => (
                     <div key={art.id} className="bg-stone-50 border border-stone-200 rounded-xl p-4 flex gap-4 items-start justify-between">
                       <div className="flex gap-3 items-start min-w-0">
-                        <img src={art.imageUrl} className="w-16 h-16 rounded-lg object-cover shrink-0 border border-stone-100" alt="" />
+                        <img src={convertGoogleDriveUrl(art.imageUrl)} className="w-16 h-16 rounded-lg object-cover shrink-0 border border-stone-100" alt="" />
                         <div className="min-w-0">
                           <h5 className="font-serif font-bold text-stone-800 text-sm truncate">{art.title}</h5>
                           <span className="inline-block bg-amber-50 text-amber-900 border border-amber-100 px-1.5 py-0.5 rounded text-[10px] font-medium mt-1">
