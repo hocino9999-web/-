@@ -151,7 +151,23 @@ export default function ChatBot() {
       });
 
       if (!response.ok) {
-        throw new Error('抱歉，與星野洋洋的連線發生些許障礙，請確認 API 金鑰是否配置，或稍後再試。');
+        let errMsg = `連線發生錯誤 (HTTP ${response.status})`;
+        try {
+          const resText = await response.text();
+          try {
+            const errData = JSON.parse(resText);
+            if (errData && errData.error) {
+              errMsg = `連線錯誤: ${errData.error}`;
+            } else if (errData && errData.message) {
+              errMsg = `連線錯誤: ${errData.message}`;
+            } else {
+              errMsg = `連線錯誤 (HTTP ${response.status}): ${resText.substring(0, 100)}`;
+            }
+          } catch (_) {
+            errMsg = `連線錯誤 (HTTP ${response.status}): ${resText.substring(0, 100)}`;
+          }
+        } catch (_) {}
+        throw new Error(errMsg);
       }
 
       const data = await response.json();

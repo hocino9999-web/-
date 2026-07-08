@@ -66,7 +66,8 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ error: 'Message content is required.' });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY1 || process.env.VITE_GEMINI_API_KEY;
+    console.log(`[SERVER API KEY CHECK] Key exists: ${!!apiKey}, length: ${apiKey ? apiKey.length : 0}, prefix: ${apiKey ? apiKey.substring(0, 6) : 'none'}`);
     if (!apiKey) {
       console.warn('Warning: GEMINI_API_KEY environment variable is not configured.');
       return res.status(500).json({
@@ -98,16 +99,36 @@ app.post('/api/chat', async (req, res) => {
 9. 你是真人嗎？我是 AI 導覽員，依據網站資料回答。
 10. 可以安排導覽嗎？若要預約導覽，請點選網站「預約導覽」頁面或加入星野洋洋LINE聯繫。`;
 
-    // Reconstruct chat with localized Kaohsiung personality
-    const chat = ai.chats.create({
-      model: 'gemini-3.5-flash',
-      config: {
-        systemInstruction: systemInstruction || defaultInstruction,
-      }
-    });
+    // Reconstruct chat with localized Kaohsiung personality and support multi-model fallback
+    const models = ['gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+    let lastError = null;
+    let responseText = '';
 
-    const response = await chat.sendMessage({ message });
-    return res.status(200).json({ text: response.text || '' });
+    for (const modelName of models) {
+      try {
+        console.log(`[Server API] Trying model: ${modelName}`);
+        const chat = ai.chats.create({
+          model: modelName,
+          config: {
+            systemInstruction: systemInstruction || defaultInstruction,
+          }
+        });
+        const response = await chat.sendMessage({ message });
+        responseText = response.text || '';
+        lastError = null;
+        console.log(`[Server API] Success with model: ${modelName}`);
+        break;
+      } catch (err) {
+        console.warn(`[Server API] Model ${modelName} failed, trying next... Error:`, err);
+        lastError = err;
+      }
+    }
+
+    if (lastError) {
+      throw lastError;
+    }
+
+    return res.status(200).json({ text: responseText });
   } catch (error) {
     console.error('Server-side Gemini Chat Error:', error);
     return res.status(500).json({

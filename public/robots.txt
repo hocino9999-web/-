@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://spiffy-rabanadas-52d404.netlify.app/sitemap.xml
