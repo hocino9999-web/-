@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { TourNote } from '../types';
@@ -159,7 +159,7 @@ const HISTORIC_SPOTS: MapSpot[] = [
   }
 ];
 
-function HistoryMapComponent({ dbArticles, onSelectArticle, onSearchArticles, setActiveTab }: HistoryMapProps) {
+export default function HistoryMap({ dbArticles, onSelectArticle, onSearchArticles, setActiveTab }: HistoryMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<{ [key: string]: L.Marker }>({});
   const [selectedSpot, setSelectedSpot] = useState<MapSpot>(HISTORIC_SPOTS[0]);
@@ -177,21 +177,17 @@ function HistoryMapComponent({ dbArticles, onSelectArticle, onSearchArticles, se
     return match || null;
   };
 
-  const matchedArticle = useMemo(() => {
-    return getMatchedArticle(selectedSpot);
-  }, [selectedSpot, dbArticles]);
+  const matchedArticle = getMatchedArticle(selectedSpot);
 
   // Filter spots dynamically
-  const filteredSpots = useMemo(() => {
-    return HISTORIC_SPOTS.filter(spot => {
-      const matchesCategory = activeCategory === '全部' || spot.category === activeCategory;
-      const matchesSearch = !searchQuery.trim() || 
-        spot.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        spot.district.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        spot.description.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesCategory && matchesSearch;
-    });
-  }, [activeCategory, searchQuery]);
+  const filteredSpots = HISTORIC_SPOTS.filter(spot => {
+    const matchesCategory = activeCategory === '全部' || spot.category === activeCategory;
+    const matchesSearch = !searchQuery.trim() || 
+      spot.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      spot.district.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      spot.description.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   // Handle marker click or sidebar select
   const handleSelectSpot = (spot: MapSpot, zoomTo: boolean = true) => {
@@ -538,6 +534,3 @@ function HistoryMapComponent({ dbArticles, onSelectArticle, onSearchArticles, se
     </div>
   );
 }
-
-const HistoryMap = React.memo(HistoryMapComponent);
-export default HistoryMap;

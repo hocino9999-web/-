@@ -128,11 +128,23 @@ function parseHeaders(content: string) {
 
 function getReadingTime(content: string) {
   if (!content) return 0;
-  const chineseChars = (content.match(/[\u4e00-\u9fa5]/g) || []).length;
-  const cleanEnglish = content.replace(/[\u4e00-\u9fa5]/g, ' ');
-  const englishWords = (cleanEnglish.match(/[a-zA-Z0-9'-]+/g) || []).length;
-  const totalWords = chineseChars + englishWords;
-  return Math.max(1, Math.ceil(totalWords / 200));
+  let totalCount = 0;
+  let inWord = false;
+  for (let i = 0; i < content.length; i++) {
+    const code = content.charCodeAt(i);
+    if (code >= 0x4e00 && code <= 0x9fa5) {
+      totalCount++;
+      inWord = false;
+    } else if (code <= 32) {
+      inWord = false;
+    } else {
+      if (!inWord) {
+        totalCount++;
+        inWord = true;
+      }
+    }
+  }
+  return Math.max(1, Math.ceil(totalCount / 200));
 }
 
 export default function App() {
