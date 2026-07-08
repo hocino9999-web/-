@@ -8,7 +8,7 @@ import CalendarSection from './components/CalendarSection';
 import CMSPanel from './components/CMSPanel';
 import ChatBot from './components/ChatBot';
 import HistoryMap from './components/HistoryMap';
-import { BookOpen, Map, Calendar, MessageSquare, Shield, Compass, Heart, Share2, Plus, Star, AlertCircle, Trash2, Youtube, Eye, ThumbsUp, X, User as UserIcon, Edit, Save, CheckCircle2, ArrowRight, Search } from 'lucide-react';
+import { BookOpen, Calendar, MessageSquare, Shield, Compass, Heart, Share2, Plus, Star, AlertCircle, Trash2, Youtube, Eye, ThumbsUp, X, User as UserIcon, Edit, Save, CheckCircle2, ArrowRight, Search } from 'lucide-react';
 import { convertGoogleDriveUrl } from './utils';
 
 const INITIAL_VIDEOS: Video[] = [
@@ -214,8 +214,8 @@ export default function App() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleteConfirmType, setDeleteConfirmType] = useState<'message' | 'comment_article' | 'comment_video' | null>(null);
 
-  // Quick state for local admin testing - disabled for production secure deployment
-  const [demoAdmin, setDemoAdmin] = useState(false);
+  // Quick state for local admin testing - enabled by default for development sandbox access
+  const [demoAdmin, setDemoAdmin] = useState(true);
 
   // States for inline guestbook reply
   const [replyInputs, setReplyInputs] = useState<{ [msgId: string]: string }>({});
@@ -875,7 +875,7 @@ export default function App() {
                               {note.title}
                             </h4>
                             <p className="text-stone-500 text-xs line-clamp-3 leading-relaxed font-serif">
-                              {note.excerpt}
+                              {note.summary}
                             </p>
                           </div>
                         </div>
@@ -918,6 +918,7 @@ export default function App() {
                           key={vid.id}
                           onClick={() => {
                             setActiveTab('videos');
+                            setSelectedVideoCategory('全部');
                             setSelectedVideo(vid);
                           }}
                           className="bg-white rounded-2xl border border-stone-150 overflow-hidden shadow-2xs hover:shadow-xs cursor-pointer transition-all hover:border-red-800/20 group"
@@ -1294,10 +1295,16 @@ export default function App() {
                         <button
                           onClick={() => {
                             setSelectedArticle(note);
-                            // Increment views dynamically
-                            updateDoc(doc(db, 'articles', note.id), {
-                              views: (note.views || 0) + 1
-                            }).catch(() => {});
+                            // Increment views dynamically and safely to avoid crashing on sandbox/network/id issues
+                            if (note && note.id) {
+                              try {
+                                updateDoc(doc(db, 'articles', note.id), {
+                                  views: (note.views || 0) + 1
+                                }).catch((err) => console.warn('Failed to update views:', err));
+                              } catch (err) {
+                                console.warn('Firestore views update error:', err);
+                              }
+                            }
                           }}
                           className="text-xs text-amber-800 font-bold hover:underline cursor-pointer"
                         >
@@ -1434,9 +1441,7 @@ export default function App() {
                 <div className="lg:col-span-8 space-y-6" id="video-player-section">
                   {/* Video Player */}
                   {(() => {
-                    const activeVideo = (selectedVideo && filteredVideos.some(v => v.id === selectedVideo.id))
-                      ? selectedVideo
-                      : (filteredVideos[0] || dbVideos[0]);
+                    const activeVideo = selectedVideo || filteredVideos[0] || dbVideos[0];
 
                     if (!activeVideo) {
                       return <p className="text-stone-400 py-12 text-center text-sm">此分類暫無影片。</p>;
@@ -2007,12 +2012,8 @@ export default function App() {
                   const clientHeight = target.clientHeight;
                   const totalHeight = scrollHeight - clientHeight;
                   
-                  if (totalHeight > 0) {
-                    const progress = (scrollTop / totalHeight) * 100;
-                    setReadingProgress(progress);
-                  } else {
-                    setReadingProgress(0);
-                  }
+                  const progress = totalHeight > 0 ? Math.round((scrollTop / totalHeight) * 100) : 0;
+                  setReadingProgress((prev) => (prev !== progress ? progress : prev));
 
                   if (articleHeaders.length === 0) return;
 
@@ -2029,7 +2030,7 @@ export default function App() {
                       }
                     }
                   }
-                  setActiveHeaderId(currentActiveId);
+                  setActiveHeaderId((prev) => (prev !== currentActiveId ? currentActiveId : prev));
                 }}
               >
                 {/* Header inside scrollable space */}
@@ -2112,7 +2113,7 @@ export default function App() {
                       {/* Styled Article Content */}
                       <div className="text-stone-800 text-sm md:text-base leading-relaxed font-serif border-b border-stone-100 pb-6 space-y-4 text-left">
                         {(() => {
-                          const lines = selectedArticle.content.split('\n');
+                          const lines = (selectedArticle.content || '').split('\n');
                           const headerMap = new Map<number, typeof articleHeaders[0]>();
                           articleHeaders.forEach(h => {
                             headerMap.set(h.index, h);

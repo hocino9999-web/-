@@ -85,16 +85,7 @@ const CHATBOT_FAQ = [
 export default function ChatBot() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [inputText, setInputText] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [activeFaqTab, setActiveFaqTab] = useState<string>('網站與影音');
-  
-  // Custom chatbot instructions/prompt configuration
-  const [systemPrompt, setSystemPrompt] = useState<string>(() => {
-    return localStorage.getItem('chatbot_system_prompt') || CHAT_SYSTEM_PROMPT;
-  });
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Initialize opening message from AI Conductor
@@ -103,7 +94,7 @@ export default function ChatBot() {
       {
         id: 'welcome',
         sender: 'bot',
-        text: `您好，歡迎來到《星野洋洋的導覽筆記》！\n\n我是星野洋洋 AI 導覽員。\n\n您可以詢問：\n- 高雄歷史\n- 高雄景點\n- 古蹟介紹\n- 人物故事\n- 高雄風華錄影片\n- 導覽路線建議\n\n若目前找不到答案，我也會誠實告知，不會隨意猜測。`
+        text: `您好，歡迎來到《星野洋洋的導覽筆記》！\n\n我是星野洋洋 AI 導覽員。請點選下方的常見問答按鈕，我會立即為您提供詳細的高雄歷史、景點與古蹟導覽解答！`
       }
     ]);
   }, []);
@@ -118,83 +109,7 @@ export default function ChatBot() {
     }
   }, [messages, isOpen]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputText.trim() || isLoading) return;
-
-    const userMessageText = inputText.trim();
-    setInputText('');
-
-    await sendMessageToBot(userMessageText);
-  };
-
-  const sendMessageToBot = async (text: string) => {
-    const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      sender: 'user',
-      text
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setIsLoading(true);
-
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ 
-          message: text,
-          systemInstruction: systemPrompt
-        })
-      });
-
-      if (!response.ok) {
-        let errMsg = `連線發生錯誤 (HTTP ${response.status})`;
-        try {
-          const resText = await response.text();
-          try {
-            const errData = JSON.parse(resText);
-            if (errData && errData.error) {
-              errMsg = `連線錯誤: ${errData.error}`;
-            } else if (errData && errData.message) {
-              errMsg = `連線錯誤: ${errData.message}`;
-            } else {
-              errMsg = `連線錯誤 (HTTP ${response.status}): ${resText.substring(0, 100)}`;
-            }
-          } catch (_) {
-            errMsg = `連線錯誤 (HTTP ${response.status}): ${resText.substring(0, 100)}`;
-          }
-        } catch (_) {}
-        throw new Error(errMsg);
-      }
-
-      const data = await response.json();
-      
-      const botMessage: ChatMessage = {
-        id: `bot-${Date.now()}`,
-        sender: 'bot',
-        text: data.text || '我好像在思索中迷失了方向，請再問我一次吧！'
-      };
-
-      setMessages(prev => [...prev, botMessage]);
-    } catch (error) {
-      console.error('Chat error:', error);
-      const errorMessage: ChatMessage = {
-        id: `error-${Date.now()}`,
-        sender: 'bot',
-        text: error instanceof Error ? error.message : '連線異常，請稍後再試。'
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleFAQClick = (q: string, a: string) => {
-    if (isLoading) return;
-    
     const userMessage: ChatMessage = {
       id: `user-faq-${Date.now()}`,
       sender: 'user',
@@ -210,18 +125,12 @@ export default function ChatBot() {
     setMessages(prev => [...prev, userMessage, botMessage]);
   };
 
-  const handleSaveSettings = (e: React.FormEvent) => {
-    e.preventDefault();
-    localStorage.setItem('chatbot_system_prompt', systemPrompt);
-    setShowSettings(false);
-  };
-
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end" id="floating-chatbot">
       {/* Expanded Chat Box */}
       {isOpen && (
         <div 
-          className="w-[360px] sm:w-[420px] h-[580px] bg-white rounded-3xl shadow-2xl border border-stone-200/80 flex flex-col overflow-hidden mb-4 transition-all"
+          className="w-[360px] sm:w-[420px] h-[550px] bg-white rounded-3xl shadow-2xl border border-stone-200/80 flex flex-col overflow-hidden mb-4 transition-all animate-fade-in"
           id="chat-box-container"
         >
           {/* Chat Header */}
@@ -231,18 +140,11 @@ export default function ChatBot() {
                 <Compass className="w-5 h-5 text-amber-200" />
               </div>
               <div className="text-left">
-                <h4 className="font-serif font-bold text-sm text-white">星野洋洋 AI 導覽員</h4>
+                <h4 className="font-serif font-bold text-sm text-white">星野洋洋 導覽問答</h4>
                 <span className="text-[10px] text-amber-200/80">提供親切、誠懇的高雄文史導覽</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowSettings(!showSettings)}
-                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-amber-100 hover:text-white cursor-pointer"
-                title="AI 系統設定"
-              >
-                <Settings className="w-4 h-4" />
-              </button>
               <button
                 onClick={() => setIsOpen(false)}
                 className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-amber-100 hover:text-white cursor-pointer"
@@ -252,48 +154,6 @@ export default function ChatBot() {
               </button>
             </div>
           </div>
-
-          {/* Settings Panel Overlay */}
-          {showSettings ? (
-            <form onSubmit={handleSaveSettings} className="bg-amber-50/90 border-b border-amber-200 p-4 space-y-3 text-left">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-amber-950 flex items-center gap-1">
-                  ⚙️ 導覽員 AI 系統指令設定
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSystemPrompt(CHAT_SYSTEM_PROMPT);
-                  }}
-                  className="text-[10px] text-amber-800 hover:underline cursor-pointer"
-                >
-                  重設預設值
-                </button>
-              </div>
-              <textarea
-                value={systemPrompt}
-                onChange={(e) => setSystemPrompt(e.target.value)}
-                placeholder="輸入 AI 的系統指令、語氣或特色內容..."
-                className="w-full bg-white border border-amber-200 rounded-xl p-3 text-xs text-stone-700 h-28 outline-none focus:border-amber-700 transition-all resize-none leading-relaxed"
-                required
-              />
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowSettings(false)}
-                  className="px-3 py-1.5 bg-stone-200 hover:bg-stone-300 text-stone-700 rounded-lg text-[11px] font-bold cursor-pointer transition-colors"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  className="px-3 py-1.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg text-[11px] font-bold cursor-pointer transition-colors"
-                >
-                  儲存自訂設定
-                </button>
-              </div>
-            </form>
-          ) : null}
 
           {/* Message List Area */}
           <div className="flex-1 overflow-y-auto p-5 bg-amber-50/20 space-y-4">
@@ -307,8 +167,6 @@ export default function ChatBot() {
                   className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm shadow-2xs leading-relaxed ${
                     msg.sender === 'user'
                       ? 'bg-amber-700 text-white rounded-tr-none'
-                      : msg.id.startsWith('error')
-                      ? 'bg-rose-50 border border-rose-100 text-rose-850 rounded-tl-none font-mono text-xs'
                       : 'bg-white border border-stone-100 text-stone-800 rounded-tl-none font-serif'
                   }`}
                 >
@@ -316,32 +174,24 @@ export default function ChatBot() {
                 </div>
               </div>
             ))}
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-white border border-stone-100 rounded-2xl rounded-tl-none px-4 py-3 flex items-center gap-2 text-stone-500 text-xs shadow-2xs">
-                  <Loader2 className="w-4 h-4 animate-spin text-amber-700" />
-                  <span>星野洋洋正翻閱歷史筆記中...</span>
-                </div>
-              </div>
-            )}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Predefined FAQ / Q&A Quick Actions Box */}
-          <div className="border-t border-stone-100 bg-stone-50 p-3.5 space-y-2.5 text-left">
+          {/* Predefined FAQ / Q&A Quick Actions Box - Moved to the bottom to act as the primary interface */}
+          <div className="border-t border-stone-150 bg-stone-50 p-4 space-y-3 text-left shrink-0">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-stone-600 flex items-center gap-1">
-                <HelpCircle className="w-3.5 h-3.5 text-amber-700" />
-                <span>常見導覽問與答（快速點選）：</span>
+              <span className="text-xs font-bold text-stone-700 flex items-center gap-1">
+                <HelpCircle className="w-4 h-4 text-amber-700 animate-pulse" />
+                <span>請點選下方導覽問答主題：</span>
               </span>
               <div className="flex gap-1.5">
                 {CHATBOT_FAQ.map(cat => (
                   <button
                     key={cat.category}
                     onClick={() => setActiveFaqTab(cat.category)}
-                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       activeFaqTab === cat.category
-                        ? 'bg-amber-800 text-white'
+                        ? 'bg-amber-800 text-white shadow-xs'
                         : 'bg-stone-200 text-stone-600 hover:bg-stone-300'
                     }`}
                   >
@@ -351,45 +201,20 @@ export default function ChatBot() {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-1.5 max-h-[75px] overflow-y-auto pr-1">
+            <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto pr-1">
               {CHATBOT_FAQ.find(c => c.category === activeFaqTab)?.questions.map((qObj, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleFAQClick(qObj.q, qObj.a)}
-                  className="px-2.5 py-1 bg-white hover:bg-amber-50 text-stone-700 hover:text-amber-950 border border-stone-200 hover:border-amber-700/30 rounded-lg text-[11px] font-medium transition-all text-left flex items-center gap-1 cursor-pointer max-w-full truncate"
+                  className="w-full px-3 py-2 bg-white hover:bg-amber-50/50 text-stone-700 hover:text-amber-950 border border-stone-200 hover:border-amber-700/30 rounded-xl text-xs font-medium transition-all text-left flex items-center gap-2 cursor-pointer shadow-3xs"
                   title={qObj.q}
                 >
-                  <ChevronRight className="w-3 h-3 text-amber-700 flex-shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-amber-700 flex-shrink-0" />
                   <span className="truncate">{qObj.q}</span>
                 </button>
               ))}
             </div>
           </div>
-
-          {/* Message Input Form */}
-          <form onSubmit={handleSendMessage} className="p-4 border-t border-stone-100 flex gap-2 bg-white">
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder="向星野洋洋提問... (例：介紹古蹟歷史)"
-              className="flex-1 bg-stone-50 border border-stone-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-amber-700 focus:bg-white transition-all"
-              disabled={isLoading}
-              id="chat-input-text"
-            />
-            <button
-              type="submit"
-              disabled={!inputText.trim() || isLoading}
-              className={`p-2.5 rounded-xl transition-all shadow-md flex items-center justify-center cursor-pointer ${
-                inputText.trim() && !isLoading
-                  ? 'bg-amber-700 text-white shadow-amber-900/10 hover:bg-amber-800'
-                  : 'bg-stone-100 text-stone-400 border border-stone-200 shadow-none cursor-not-allowed'
-              }`}
-              id="chat-btn-send"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
         </div>
       )}
 

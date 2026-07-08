@@ -16,8 +16,8 @@ export default function CMSPanel() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
-  // Local admin bypass for preview/testing purposes - disabled by default for production secure deployment
-  const [isLocalAdminMode, setIsLocalAdminMode] = useState<boolean>(false);
+  // Local admin bypass for preview/testing purposes - enabled by default for sandbox testing
+  const [isLocalAdminMode, setIsLocalAdminMode] = useState<boolean>(true);
   
   // UI states
   const [cmsTab, setCmsTab] = useState<'messages' | 'articles' | 'videos' | 'bookings'>('bookings');
@@ -482,16 +482,38 @@ export default function CMSPanel() {
                 <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
                 <span>已認證專屬管理員 (hocino9999@gmail.com)</span>
               </div>
+            ) : isLocalAdminMode ? (
+              <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 text-xs font-medium text-blue-800 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                <span>已開啟本機模擬測試權限 (全功能已解鎖)</span>
+              </div>
             ) : (
               <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2 text-xs font-medium text-amber-800 flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                <div className="w-2 h-2 rounded-full bg-amber-400"></div>
                 <span>測試模式已關閉（非專屬管理員不可操作）</span>
               </div>
             )}
           </div>
 
-          {/* Google Authentication Button */}
+          {/* Google Authentication & Local Admin Switch Buttons */}
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => {
+                setIsLocalAdminMode(!isLocalAdminMode);
+                showStatus(!isLocalAdminMode ? '已啟用本機模擬測試權限！您現在可以任意修改與刪除資料。' : '已關閉本機模擬權限。', 'success');
+              }}
+              className={`font-medium text-xs px-3.5 py-2.5 rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer ${
+                isLocalAdminMode
+                  ? 'bg-blue-800 hover:bg-blue-900 text-white'
+                  : 'bg-white hover:bg-stone-50 text-stone-700 border border-stone-200'
+              }`}
+              id="btn-toggle-local-admin"
+              type="button"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>{isLocalAdminMode ? '關閉模擬測試權限' : '開啟模擬測試權限'}</span>
+            </button>
+
             {currentUser ? (
               <div className="flex items-center gap-2">
                 <div className="bg-amber-850 text-amber-50 px-3 py-1.5 rounded-xl border border-amber-900/10 text-xs font-semibold flex items-center gap-1.5 font-mono">

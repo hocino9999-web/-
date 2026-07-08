@@ -223,7 +223,6 @@ export default function HistoryMap({ dbArticles, onSelectArticle, onSearchArticl
       scrollWheelZoom: false,
       zoomControl: true,
       dragging: true,
-      tap: true,
       touchZoom: true
     });
 
