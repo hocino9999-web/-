@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { TourNote } from '../types';
@@ -159,7 +159,7 @@ const HISTORIC_SPOTS: MapSpot[] = [
   }
 ];
 
-export default function HistoryMap({ dbArticles, onSelectArticle, onSearchArticles, setActiveTab }: HistoryMapProps) {
+function HistoryMapComponent({ dbArticles, onSelectArticle, onSearchArticles, setActiveTab }: HistoryMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<{ [key: string]: L.Marker }>({});
   const [selectedSpot, setSelectedSpot] = useState<MapSpot>(HISTORIC_SPOTS[0]);
@@ -177,17 +177,21 @@ export default function HistoryMap({ dbArticles, onSelectArticle, onSearchArticl
     return match || null;
   };
 
-  const matchedArticle = getMatchedArticle(selectedSpot);
+  const matchedArticle = useMemo(() => {
+    return getMatchedArticle(selectedSpot);
+  }, [selectedSpot, dbArticles]);
 
   // Filter spots dynamically
-  const filteredSpots = HISTORIC_SPOTS.filter(spot => {
-    const matchesCategory = activeCategory === '全部' || spot.category === activeCategory;
-    const matchesSearch = !searchQuery.trim() || 
-      spot.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      spot.district.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      spot.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const filteredSpots = useMemo(() => {
+    return HISTORIC_SPOTS.filter(spot => {
+      const matchesCategory = activeCategory === '全部' || spot.category === activeCategory;
+      const matchesSearch = !searchQuery.trim() || 
+        spot.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        spot.district.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        spot.description.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [activeCategory, searchQuery]);
 
   // Handle marker click or sidebar select
   const handleSelectSpot = (spot: MapSpot, zoomTo: boolean = true) => {
@@ -270,21 +274,31 @@ export default function HistoryMap({ dbArticles, onSelectArticle, onSearchArticl
 
       // Beautiful customized SVG Marker Icon using Leaflet L.divIcon
       const markerHtml = `
-        <div class="relative flex items-center justify-center transition-all duration-300">
-          <!-- Pulse rings for currently selected marker -->
+        <div class="relative flex items-center justify-center transition-all duration-300 transform hover:scale-120 group cursor-pointer">
+          <!-- Pulse rings for currently selected marker or hovering -->
           ${isSelected ? `
             <span class="absolute inline-flex h-10 w-10 rounded-full bg-amber-800/30 animate-ping"></span>
-            <span class="absolute inline-flex h-8 w-8 rounded-full bg-amber-800/40"></span>
-          ` : ''}
-          <!-- Central Marker Pin -->
-          <div class="flex items-center justify-center w-8 h-8 rounded-full ${isSelected ? 'bg-amber-800 text-white shadow-lg scale-115' : 'bg-stone-100 hover:bg-amber-100 text-stone-700 hover:text-amber-900 border border-stone-300'} shadow-md border-2 border-white transform transition-transform hover:scale-110">
+            <span class="absolute inline-flex h-8 w-8 rounded-full bg-amber-800/40 animate-pulse"></span>
+          ` : `
+            <span class="absolute inline-flex h-8 w-8 rounded-full bg-amber-800/0 transition-all duration-300 group-hover:bg-amber-800/20 group-hover:scale-110"></span>
+          `}
+          <!-- Central Marker Pin with hover transition -->
+          <div class="flex items-center justify-center w-8 h-8 rounded-full shadow-md border-2 border-white transform transition-all duration-300 ${
+            isSelected 
+              ? 'bg-amber-800 text-white shadow-lg scale-110' 
+              : 'bg-stone-100 text-stone-700 border border-stone-300 group-hover:bg-amber-700 group-hover:text-white group-hover:border-amber-700 group-hover:shadow-lg'
+          }">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.2 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0z"/>
               <circle cx="12" cy="10" r="3"/>
             </svg>
           </div>
-          <!-- Tiny Label -->
-          <span class="absolute -bottom-5 bg-stone-900/85 text-[9px] text-white font-bold whitespace-nowrap px-1.5 py-0.5 rounded shadow-xs pointer-events-none transform scale-90">
+          <!-- Tiny Label with smooth hover animation -->
+          <span class="absolute -bottom-5 bg-stone-900/85 text-[9px] text-white font-bold whitespace-nowrap px-1.5 py-0.5 rounded shadow-xs pointer-events-none transform scale-90 transition-all duration-300 ${
+            isSelected 
+              ? 'bg-amber-900/90 text-amber-50 scale-95' 
+              : 'group-hover:scale-100 group-hover:bg-amber-900 group-hover:text-white group-hover:-bottom-6 shadow-sm'
+          }">
             ${spot.name}
           </span>
         </div>
@@ -317,9 +331,9 @@ export default function HistoryMap({ dbArticles, onSelectArticle, onSearchArticl
       // Store reference
       markersRef.current[spot.id] = marker;
 
-      // Add click events
+      // Add click events - center and zoom dynamically upon click for a fluent experience
       marker.on('click', () => {
-        handleSelectSpot(spot, false);
+        handleSelectSpot(spot, true);
       });
     });
 
@@ -365,10 +379,10 @@ export default function HistoryMap({ dbArticles, onSelectArticle, onSearchArticl
               key={cat}
               type="button"
               onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all duration-300 cursor-pointer border transform active:scale-95 ${
                 activeCategory === cat
-                  ? 'bg-amber-800 text-amber-50 border-amber-800 shadow-sm'
-                  : 'bg-stone-50 hover:bg-stone-100 text-stone-600 border-stone-200'
+                  ? 'bg-amber-800 text-amber-50 border-amber-800 shadow-md scale-102'
+                  : 'bg-stone-50 hover:bg-amber-50/40 text-stone-600 hover:text-amber-900 border-stone-200 hover:border-amber-300/60'
               }`}
             >
               {cat === '全部' ? '全部景點' : cat}
@@ -509,10 +523,10 @@ export default function HistoryMap({ dbArticles, onSelectArticle, onSearchArticl
               key={spot.id}
               type="button"
               onClick={() => handleSelectSpot(spot, true)}
-              className={`px-3 py-2 text-xs font-serif rounded-lg border transition-all cursor-pointer shrink-0 snap-center flex items-center gap-1.5 ${
+              className={`px-3 py-2 text-xs font-serif rounded-lg border transition-all duration-300 cursor-pointer shrink-0 snap-center flex items-center gap-1.5 transform active:scale-95 ${
                 selectedSpot.id === spot.id
-                  ? 'bg-amber-800 text-amber-50 border-amber-800 font-bold shadow-sm scale-102'
-                  : 'bg-white hover:bg-stone-100 text-stone-700 border-stone-200 hover:border-stone-300'
+                  ? 'bg-amber-800 text-amber-50 border-amber-800 font-bold shadow-md scale-105 -translate-y-0.5'
+                  : 'bg-white hover:bg-amber-50/60 text-stone-700 hover:text-amber-900 border-stone-200 hover:border-amber-300/80 hover:shadow-sm hover:-translate-y-0.5'
               }`}
             >
               <span className="text-xs">📍</span>
@@ -524,3 +538,6 @@ export default function HistoryMap({ dbArticles, onSelectArticle, onSearchArticl
     </div>
   );
 }
+
+const HistoryMap = React.memo(HistoryMapComponent);
+export default HistoryMap;

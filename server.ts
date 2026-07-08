@@ -102,8 +102,8 @@ async function startServer() {
   9. 你是真人嗎？我是 AI 導覽員，依據網站資料回答。
   10. 可以安排導覽嗎？若要預約導覽，請點選網站「預約導覽」頁面或加入星野洋洋LINE聯繫。`;
 
-      // Reconstruct chat with localized Kaohsiung personality and support multi-model fallback
-      const models = ['gemini-2.5-flash', 'gemini-3.5-flash'];
+      // Directly use gemini-3.5-flash for maximum responsiveness and official support
+      const models = ['gemini-3.5-flash'];
       let lastError = null;
       let responseText = '';
 

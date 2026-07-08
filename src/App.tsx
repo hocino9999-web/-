@@ -62,6 +62,79 @@ const INITIAL_VIDEOS: Video[] = [
   }
 ];
 
+function parseHeaders(content: string) {
+  if (!content) return [];
+  const lines = content.split('\n');
+  const headers: { id: string; text: string; level: number; index: number }[] = [];
+  
+  let markdownFound = false;
+  lines.forEach((line, index) => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('### ')) {
+      markdownFound = true;
+      headers.push({
+        id: `header-h3-${index}`,
+        text: trimmed.replace(/^###\s+/, '').trim(),
+        level: 3,
+        index
+      });
+    } else if (trimmed.startsWith('## ')) {
+      markdownFound = true;
+      headers.push({
+        id: `header-h2-${index}`,
+        text: trimmed.replace(/^##\s+/, '').trim(),
+        level: 2,
+        index
+      });
+    }
+  });
+
+  if (!markdownFound) {
+    lines.forEach((line, index) => {
+      const trimmed = line.trim();
+      if (trimmed.length >= 2 && trimmed.length <= 40) {
+        const bracketMatch = trimmed.match(/^【(.+)】$/);
+        const chineseNumMatch = trimmed.match(/^([一二三四五六七八九十百]+、\s*(.+))$/);
+        const englishNumMatch = trimmed.match(/^([0-9]+\.\s*(.+))$/);
+        
+        if (bracketMatch) {
+          headers.push({
+            id: `header-fb-${index}`,
+            text: bracketMatch[1].trim(),
+            level: 2,
+            index
+          });
+        } else if (chineseNumMatch) {
+          headers.push({
+            id: `header-fb-${index}`,
+            text: trimmed,
+            level: 2,
+            index
+          });
+        } else if (englishNumMatch) {
+          headers.push({
+            id: `header-fb-${index}`,
+            text: trimmed,
+            level: 3,
+            index
+          });
+        }
+      }
+    });
+  }
+
+  return headers;
+}
+
+function getReadingTime(content: string) {
+  if (!content) return 0;
+  const chineseChars = (content.match(/[\u4e00-\u9fa5]/g) || []).length;
+  const cleanEnglish = content.replace(/[\u4e00-\u9fa5]/g, ' ');
+  const englishWords = (cleanEnglish.match(/[a-zA-Z0-9'-]+/g) || []).length;
+  const totalWords = chineseChars + englishWords;
+  return Math.max(1, Math.ceil(totalWords / 200));
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<'home' | 'notes' | 'videos' | 'calendar' | 'guestbook' | 'about' | 'admin'>('home');
   const [dbArticles, setDbArticles] = useState<TourNote[]>([]);
@@ -70,6 +143,18 @@ export default function App() {
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  // States for reading progress and dynamic Table of Contents (TOC)
+  const [readingProgress, setReadingProgress] = useState(0);
+  const [activeHeaderId, setActiveHeaderId] = useState<string | null>(null);
+  const [isMobileTocExpanded, setIsMobileTocExpanded] = useState(false);
+
+  // Reset progress and headers when transitioning to a new article
+  useEffect(() => {
+    setReadingProgress(0);
+    setActiveHeaderId(null);
+    setIsMobileTocExpanded(false);
+  }, [selectedArticle?.id]);
 
   // Subcategory filters
   const [selectedArticleCategory, setSelectedArticleCategory] = useState<string>('全部');
@@ -1876,185 +1961,377 @@ export default function App() {
       </main>
 
       {/* Article Details Modal */}
-      {selectedArticle && (
-        <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col shadow-2xl border border-stone-100 relative">
-            {/* Floating Close Button */}
-            <button
-              onClick={() => setSelectedArticle(null)}
-              className="absolute top-4 right-4 bg-stone-900/80 hover:bg-stone-950 text-white rounded-full p-2 cursor-pointer transition-colors z-50 shadow-md"
-              title="關閉"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            {/* Scrollable Container */}
-            <div className="overflow-y-auto flex-1 text-left">
-              {/* Header inside scrollable space */}
-              <div className="relative h-64 md:h-80 w-full shrink-0">
-                <img src={convertGoogleDriveUrl(selectedArticle.imageUrl)} alt={selectedArticle.title} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-                <div className="absolute bottom-6 left-6 right-6 text-white text-left">
-                  <span className="bg-amber-800 text-amber-50 text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full shadow-md inline-block mb-2">
-                    {selectedArticle.category}
-                  </span>
-                  <h3 className="font-serif font-bold text-xl md:text-3xl leading-snug">
-                    {selectedArticle.title}
-                  </h3>
-                </div>
+      {selectedArticle && (() => {
+        const articleHeaders = parseHeaders(selectedArticle.content);
+        const hasHeaders = articleHeaders.length > 0;
+        return (
+          <div className="fixed inset-0 bg-stone-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fade-in">
+            <div className={`bg-white rounded-3xl w-full max-h-[85vh] overflow-hidden flex flex-col shadow-2xl border border-stone-100 relative transition-all duration-300 ${hasHeaders ? 'max-w-5xl' : 'max-w-3xl'}`}>
+              
+              {/* Reading Progress Bar */}
+              <div className="w-full h-1 bg-stone-100 shrink-0 z-50 relative">
+                <div 
+                  className="h-full bg-amber-700 transition-all duration-150 ease-out"
+                  style={{ width: `${readingProgress}%` }}
+                />
               </div>
 
-              {/* Modal Content text and comments */}
-              <div className="p-6 md:p-8 space-y-6">
-                <div className="flex items-center gap-3 text-xs text-stone-500 border-b border-stone-100 pb-3">
-                <span>時間：<strong>{selectedArticle.date}</strong></span>
-                {selectedArticle.location && (
-                  <>
-                    <span>•</span>
-                    <span>地點：<strong>{selectedArticle.location}</strong></span>
-                  </>
-                )}
-                <span>•</span>
-                <span>作者：<strong>{selectedArticle.author || '星野洋洋'}</strong></span>
-              </div>
+              {/* Floating Close Button */}
+              <button
+                onClick={() => setSelectedArticle(null)}
+                className="absolute top-4 right-4 bg-stone-900/80 hover:bg-stone-950 text-white rounded-full p-2 cursor-pointer transition-colors z-50 shadow-md"
+                title="關閉"
+              >
+                <X className="w-5 h-5" />
+              </button>
 
-              <div className="text-stone-800 text-sm md:text-base leading-relaxed font-serif whitespace-pre-wrap border-b border-stone-100 pb-6">
-                {selectedArticle.content}
-              </div>
+              {/* Scrollable Container */}
+              <div 
+                className="overflow-y-auto flex-1 text-left"
+                onScroll={(e) => {
+                  const target = e.currentTarget;
+                  const scrollTop = target.scrollTop;
+                  const scrollHeight = target.scrollHeight;
+                  const clientHeight = target.clientHeight;
+                  const totalHeight = scrollHeight - clientHeight;
+                  
+                  if (totalHeight > 0) {
+                    const progress = (scrollTop / totalHeight) * 100;
+                    setReadingProgress(progress);
+                  } else {
+                    setReadingProgress(0);
+                  }
 
-              {/* Dynamic Comment Section inside Article Modal */}
-              <div className="space-y-6">
-                <h4 className="font-serif font-bold text-stone-900 text-lg flex items-center gap-1.5 border-b border-stone-50 pb-2">
-                  <MessageSquare className="w-5 h-5 text-amber-700" />
-                  <span>文章迴響 ({displayComments.filter(c => c.itemId === selectedArticle.id && c.itemType === 'article').length})</span>
-                </h4>
+                  if (articleHeaders.length === 0) return;
 
-                {/* Post comment input */}
-                <div className="bg-stone-50 p-4 rounded-xl border border-stone-200/50 space-y-3">
-                  <h5 className="text-xs font-bold text-stone-700">留下您的感想與討論：</h5>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <input
-                      type="text"
-                      placeholder="暱稱 *"
-                      value={articleCommentAuthor}
-                      onChange={(e) => setArticleCommentAuthor(e.target.value)}
-                      className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-amber-700"
-                    />
-                    <input
-                      type="text"
-                      placeholder="留言內容... *"
-                      value={articleCommentContent}
-                      onChange={(e) => setArticleCommentContent(e.target.value)}
-                      className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-amber-700 sm:col-span-2"
-                    />
-                  </div>
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => handleAddComment(selectedArticle.id, 'article', articleCommentAuthor, articleCommentContent)}
-                      className="px-4 py-1.5 bg-amber-800 hover:bg-amber-900 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
-                    >
-                      送出留言
-                    </button>
+                  const containerTop = target.getBoundingClientRect().top;
+                  let currentActiveId = articleHeaders[0].id;
+
+                  for (const header of articleHeaders) {
+                    const el = document.getElementById(header.id);
+                    if (el) {
+                      const rect = el.getBoundingClientRect();
+                      // Check if header is around or above the top of the container viewport
+                      if (rect.top - containerTop <= 120) {
+                        currentActiveId = header.id;
+                      }
+                    }
+                  }
+                  setActiveHeaderId(currentActiveId);
+                }}
+              >
+                {/* Header inside scrollable space */}
+                <div className="relative h-64 md:h-80 w-full shrink-0">
+                  <img src={convertGoogleDriveUrl(selectedArticle.imageUrl)} alt={selectedArticle.title} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+                  <div className="absolute bottom-6 left-6 right-6 text-white text-left">
+                    <span className="bg-amber-800 text-amber-50 text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full shadow-md inline-block mb-2">
+                      {selectedArticle.category}
+                    </span>
+                    <h3 className="font-serif font-bold text-xl md:text-3xl leading-snug">
+                      {selectedArticle.title}
+                    </h3>
                   </div>
                 </div>
 
-                {/* Comment feeds */}
-                <div className="space-y-3">
-                  {displayComments.filter(c => c.itemId === selectedArticle.id && c.itemType === 'article').length === 0 ? (
-                    <p className="text-xs text-stone-400 text-center py-4">目前尚無留言，歡迎留下您的足跡與迴響！</p>
-                  ) : (
-                    displayComments
-                      .filter(c => c.itemId === selectedArticle.id && c.itemType === 'article')
-                      .map((comment) => (
-                        <div key={comment.id} className="bg-stone-50/50 border border-stone-100 rounded-xl p-3.5 flex justify-between items-start gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <span className="font-bold text-xs text-stone-800">{comment.author}</span>
-                              <span className="text-[10px] text-stone-400">{comment.createdAt}</span>
+                {/* Modal Content text and comments */}
+                <div className="p-6 md:p-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    
+                    {/* Left/Main Column */}
+                    <div className="lg:col-span-3 space-y-6">
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500 border-b border-stone-100 pb-3">
+                        <span>時間：<strong>{selectedArticle.date}</strong></span>
+                        {selectedArticle.location && (
+                          <>
+                            <span>•</span>
+                            <span>地點：<strong>{selectedArticle.location}</strong></span>
+                          </>
+                        )}
+                        <span>•</span>
+                        <span>作者：<strong>{selectedArticle.author || '星野洋洋'}</strong></span>
+                        <span>•</span>
+                        <span className="inline-flex items-center gap-1 bg-amber-50/70 text-amber-800 font-medium px-2 py-0.5 rounded border border-amber-200/40">
+                          <BookOpen className="w-3 h-3 text-amber-700 shrink-0" />
+                          <span>預估閱讀 {getReadingTime(selectedArticle.content)} 分鐘</span>
+                        </span>
+                      </div>
+
+                      {/* Mobile Collapsible TOC */}
+                      {hasHeaders && (
+                        <div className="block lg:hidden bg-stone-50 border border-stone-200/60 rounded-2xl p-4 mb-6">
+                          <button
+                            onClick={() => setIsMobileTocExpanded(!isMobileTocExpanded)}
+                            className="w-full flex items-center justify-between font-serif font-bold text-stone-900 text-sm cursor-pointer outline-none"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Compass className="w-4 h-4 text-amber-800 animate-spin-slow" />
+                              <span>文章大綱 ({articleHeaders.length})</span>
                             </div>
+                            <span className="text-xs text-amber-800 font-sans">
+                              {isMobileTocExpanded ? '收合 ▲' : '展開 ▼'}
+                            </span>
+                          </button>
+                          
+                          {isMobileTocExpanded && (
+                            <div className="mt-3 pt-3 border-t border-stone-200/60 space-y-2 text-xs">
+                              {articleHeaders.map((header) => {
+                                const isActive = activeHeaderId === header.id;
+                                return (
+                                  <button
+                                    key={header.id}
+                                    onClick={() => {
+                                      const el = document.getElementById(header.id);
+                                      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                    }}
+                                    className={`block w-full text-left py-1.5 px-2 rounded-lg cursor-pointer leading-relaxed transition-all ${
+                                      header.level === 2 ? 'font-medium text-stone-800' : 'pl-4 text-stone-500'
+                                    } ${isActive ? 'text-amber-800 font-bold bg-amber-50/70 border-l-2 border-amber-800 pl-2' : 'hover:text-amber-800'}`}
+                                  >
+                                    {header.text}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-                            {editingCommentId === comment.id ? (
-                              <div className="space-y-2 mt-1">
-                                <textarea
-                                  value={editingCommentText}
-                                  onChange={(e) => setEditingCommentText(e.target.value)}
-                                  className="w-full bg-white border border-stone-200 rounded-lg p-2 text-xs outline-none focus:border-amber-700 resize-none h-16"
-                                />
-                                <div className="flex gap-2 justify-end">
-                                  <button
-                                    onClick={() => setEditingCommentId(null)}
-                                    className="px-2 py-1 bg-stone-200 hover:bg-stone-300 text-stone-700 rounded text-[10px] font-bold"
+                      {/* Styled Article Content */}
+                      <div className="text-stone-800 text-sm md:text-base leading-relaxed font-serif border-b border-stone-100 pb-6 space-y-4 text-left">
+                        {(() => {
+                          const lines = selectedArticle.content.split('\n');
+                          const headerMap = new Map<number, typeof articleHeaders[0]>();
+                          articleHeaders.forEach(h => {
+                            headerMap.set(h.index, h);
+                          });
+
+                          return lines.map((line, i) => {
+                            const header = headerMap.get(i);
+                            if (header) {
+                              if (header.level === 2) {
+                                return (
+                                  <h2 
+                                    key={i} 
+                                    id={header.id} 
+                                    className="text-xl md:text-2xl font-serif font-bold text-stone-900 mt-8 mb-4 border-b border-stone-200/60 pb-2 scroll-mt-16 flex items-center gap-2"
                                   >
-                                    取消
-                                  </button>
-                                  <button
-                                    onClick={() => handleUpdateComment(comment.id, editingCommentText)}
-                                    className="px-2 py-1 bg-amber-800 hover:bg-amber-900 text-white rounded text-[10px] font-bold"
+                                    <span className="w-1.5 h-6 bg-amber-800 rounded-full inline-block shrink-0"></span>
+                                    <span>{header.text}</span>
+                                  </h2>
+                                );
+                              } else {
+                                return (
+                                  <h3 
+                                    key={i} 
+                                    id={header.id} 
+                                    className="text-lg md:text-xl font-serif font-bold text-amber-900 mt-6 mb-3 scroll-mt-16 flex items-center gap-1.5"
                                   >
-                                    儲存
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <p className="text-xs text-stone-700 font-serif leading-relaxed whitespace-pre-wrap">{comment.content}</p>
-                            )}
+                                    <span className="w-1 h-4 bg-amber-600/60 rounded-full inline-block shrink-0"></span>
+                                    <span>{header.text}</span>
+                                  </h3>
+                                );
+                              }
+                            }
+
+                            const trimmed = line.trim();
+                            if (trimmed === '') {
+                              return <div key={i} className="h-2" />;
+                            }
+
+                            if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                              return (
+                                <ul key={i} className="list-disc pl-5 my-1 text-stone-700">
+                                  <li>{trimmed.substring(2)}</li>
+                                </ul>
+                              );
+                            }
+
+                            return (
+                              <p key={i} className="leading-relaxed text-stone-800 whitespace-pre-wrap">
+                                {line}
+                              </p>
+                            );
+                          });
+                        })()}
+                      </div>
+
+                      {/* Dynamic Comment Section inside Article Modal */}
+                      <div className="space-y-6 text-left">
+                        <h4 className="font-serif font-bold text-stone-900 text-lg flex items-center gap-1.5 border-b border-stone-50 pb-2">
+                          <MessageSquare className="w-5 h-5 text-amber-700" />
+                          <span>文章迴響 ({displayComments.filter(c => c.itemId === selectedArticle.id && c.itemType === 'article').length})</span>
+                        </h4>
+
+                        {/* Post comment input */}
+                        <div className="bg-stone-50 p-4 rounded-xl border border-stone-200/50 space-y-3">
+                          <h5 className="text-xs font-bold text-stone-700">留下您的感想與討論：</h5>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <input
+                              type="text"
+                              placeholder="暱稱 *"
+                              value={articleCommentAuthor}
+                              onChange={(e) => setArticleCommentAuthor(e.target.value)}
+                              className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-amber-700"
+                            />
+                            <input
+                              type="text"
+                              placeholder="留言內容... *"
+                              value={articleCommentContent}
+                              onChange={(e) => setArticleCommentContent(e.target.value)}
+                              className="bg-white border border-stone-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-amber-700 sm:col-span-2"
+                            />
                           </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex justify-end">
                             <button
-                              onClick={() => handleStartEditComment(comment.id, comment.content)}
-                              className="text-[10px] text-amber-800 hover:underline cursor-pointer flex items-center gap-0.5"
-                              title="編輯留言"
+                              onClick={() => handleAddComment(selectedArticle.id, 'article', articleCommentAuthor, articleCommentContent)}
+                              className="px-4 py-1.5 bg-amber-800 hover:bg-amber-900 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
                             >
-                              <Edit className="w-3.5 h-3.5" />
-                              <span>編輯</span>
-                            </button>
-                            <button
-                              onClick={() => triggerDeleteConfirm(comment.id, 'comment_article')}
-                              className="text-[10px] text-rose-600 hover:underline cursor-pointer flex items-center gap-0.5"
-                              title="刪除留言"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>刪除</span>
+                              送出留言
                             </button>
                           </div>
                         </div>
-                      ))
-                  )}
+
+                        {/* Comment feeds */}
+                        <div className="space-y-3">
+                          {displayComments.filter(c => c.itemId === selectedArticle.id && c.itemType === 'article').length === 0 ? (
+                            <p className="text-xs text-stone-400 text-center py-4">目前尚無留言，歡迎留下您的足跡與迴響！</p>
+                          ) : (
+                            displayComments
+                              .filter(c => c.itemId === selectedArticle.id && c.itemType === 'article')
+                              .map((comment) => (
+                                <div key={comment.id} className="bg-stone-50/50 border border-stone-100 rounded-xl p-3.5 flex justify-between items-start gap-3">
+                                  <div className="flex-1 min-w-0 text-left">
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                      <span className="font-bold text-xs text-stone-800">{comment.author}</span>
+                                      <span className="text-[10px] text-stone-400">{comment.createdAt}</span>
+                                    </div>
+
+                                    {editingCommentId === comment.id ? (
+                                      <div className="space-y-2 mt-1">
+                                        <textarea
+                                          value={editingCommentText}
+                                          onChange={(e) => setEditingCommentText(e.target.value)}
+                                          className="w-full bg-white border border-stone-200 rounded-lg p-2 text-xs outline-none focus:border-amber-700 resize-none h-16"
+                                        />
+                                        <div className="flex gap-2 justify-end">
+                                          <button
+                                            onClick={() => setEditingCommentId(null)}
+                                            className="px-2 py-1 bg-stone-200 hover:bg-stone-300 text-stone-700 rounded text-[10px] font-bold"
+                                          >
+                                            取消
+                                          </button>
+                                          <button
+                                            onClick={() => handleUpdateComment(comment.id, editingCommentText)}
+                                            className="px-2 py-1 bg-amber-800 hover:bg-amber-900 text-white rounded text-[10px] font-bold"
+                                          >
+                                            儲存
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-stone-700 font-serif leading-relaxed whitespace-pre-wrap">{comment.content}</p>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <button
+                                      onClick={() => handleStartEditComment(comment.id, comment.content)}
+                                      className="text-[10px] text-amber-800 hover:underline cursor-pointer flex items-center gap-0.5"
+                                      title="編輯留言"
+                                    >
+                                      <Edit className="w-3.5 h-3.5" />
+                                      <span>編輯</span>
+                                    </button>
+                                    <button
+                                      onClick={() => triggerDeleteConfirm(comment.id, 'comment_article')}
+                                      className="text-[10px] text-rose-600 hover:underline cursor-pointer flex items-center gap-0.5"
+                                      title="刪除留言"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                      <span>刪除</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              ))
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Desktop Sticky Table of Contents Sidebar */}
+                    {hasHeaders && (
+                      <div className="hidden lg:block lg:col-span-1">
+                        <div className="sticky top-6 space-y-4 border-l border-stone-200/60 pl-6 h-fit max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin text-left">
+                          <h4 className="font-serif font-bold text-stone-900 text-sm tracking-wider uppercase mb-3 flex items-center gap-1.5 border-b border-stone-50 pb-1.5">
+                            <Compass className="w-4 h-4 text-amber-800" />
+                            <span>文章導覽</span>
+                          </h4>
+                          <div className="space-y-1">
+                            {articleHeaders.map((header) => {
+                              const isActive = activeHeaderId === header.id;
+                              const isH2 = header.level === 2;
+                              return (
+                                <button
+                                  key={header.id}
+                                  onClick={() => {
+                                    const el = document.getElementById(header.id);
+                                    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                  }}
+                                  className={`block w-full text-left transition-all duration-200 py-1.5 cursor-pointer leading-relaxed ${
+                                    isH2
+                                      ? isActive
+                                        ? "text-amber-800 font-bold pl-2 border-l-2 border-amber-800 translate-x-1"
+                                        : "text-stone-700 hover:text-amber-800 hover:translate-x-0.5 pl-2 border-l border-transparent"
+                                      : isActive
+                                        ? "text-amber-700 font-bold pl-5 border-l-2 border-amber-800 translate-x-1"
+                                        : "text-stone-500 hover:text-amber-700 hover:translate-x-0.5 pl-5 border-l border-transparent"
+                                  }`}
+                                >
+                                  {header.text}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-            {/* Modal Footer */}
-            <div className="p-4 bg-stone-50 border-t border-stone-100 flex items-center justify-between shrink-0">
-              <div className="flex items-center gap-4">
+              {/* Modal Footer */}
+              <div className="p-4 bg-stone-50 border-t border-stone-100 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => handleLikeArticle(selectedArticle.id, selectedArticle.likes)}
+                    className="px-4 py-2 bg-white hover:bg-stone-100 text-stone-700 text-xs font-bold border border-stone-200 rounded-xl cursor-pointer transition-all flex items-center gap-1.5"
+                  >
+                    <ThumbsUp className="w-4 h-4 text-amber-700" />
+                    <span>{selectedArticle.likes} 讚</span>
+                  </button>
+                  <button
+                    onClick={() => handleHeartArticle(selectedArticle.id, selectedArticle.hearts || 0)}
+                    className="px-4 py-2 bg-white hover:bg-stone-100 text-stone-700 text-xs font-bold border border-stone-200 rounded-xl cursor-pointer transition-all flex items-center gap-1.5"
+                  >
+                    <Heart className="w-4 h-4 text-rose-500 fill-current" />
+                    <span>{selectedArticle.hearts || 0} 個愛心</span>
+                  </button>
+                </div>
+
                 <button
-                  onClick={() => handleLikeArticle(selectedArticle.id, selectedArticle.likes)}
-                  className="px-4 py-2 bg-white hover:bg-stone-100 text-stone-700 text-xs font-bold border border-stone-200 rounded-xl cursor-pointer transition-all flex items-center gap-1.5"
+                  onClick={() => setSelectedArticle(null)}
+                  className="px-5 py-2 bg-stone-900 hover:bg-stone-850 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors"
                 >
-                  <ThumbsUp className="w-4 h-4 text-amber-700" />
-                  <span>{selectedArticle.likes} 讚</span>
-                </button>
-                <button
-                  onClick={() => handleHeartArticle(selectedArticle.id, selectedArticle.hearts || 0)}
-                  className="px-4 py-2 bg-white hover:bg-stone-100 text-stone-700 text-xs font-bold border border-stone-200 rounded-xl cursor-pointer transition-all flex items-center gap-1.5"
-                >
-                  <Heart className="w-4 h-4 text-rose-500 fill-current" />
-                  <span>{selectedArticle.hearts || 0} 個愛心</span>
+                  關閉閱讀
                 </button>
               </div>
 
-              <button
-                onClick={() => setSelectedArticle(null)}
-                className="px-5 py-2 bg-stone-900 hover:bg-stone-850 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors"
-              >
-                關閉閱讀
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Custom delete confirmation modal to bypass sandbox window.confirm blocks */}
       {deleteConfirmId && (

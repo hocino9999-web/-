@@ -3,21 +3,83 @@
   <head>
     <script>
       (function() {
+        // Unregister any active service workers from other/previous apps to avoid stale intercepting or caching
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            if (registrations.length > 0) {
+              console.log('Detected active service workers from other/previous apps. Unregistering...');
+              for (var i = 0; i < registrations.length; i++) {
+                registrations[i].unregister();
+              }
+              setTimeout(function() {
+                window.location.reload();
+              }, 300);
+            }
+          }).catch(function(err) {
+            console.warn('Service worker getRegistrations failed:', err);
+          });
+        }
+
+        var originalFetch = window.fetch;
+        var assignedFetch = originalFetch;
+
+        var cleanFetchCache = null;
+        function getCleanFetch() {
+          if (cleanFetchCache) return cleanFetchCache;
+          try {
+            var iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            document.documentElement.appendChild(iframe);
+            if (iframe.contentWindow && iframe.contentWindow.fetch) {
+              cleanFetchCache = iframe.contentWindow.fetch.bind(iframe.contentWindow);
+              return cleanFetchCache;
+            }
+          } catch (e) {
+            console.warn('Failed to get clean sandboxed fetch:', e);
+          }
+          return originalFetch;
+        }
+
+        var interceptedFetch = function(input, init) {
+          var url = '';
+          if (typeof input === 'string') {
+            url = input;
+          } else if (input && typeof input.url === 'string') {
+            url = input.url;
+          } else if (input && typeof input.toString === 'function') {
+            url = input.toString();
+          }
+
+          var isExternal = url.indexOf('http://') === 0 || url.indexOf('https://') === 0 || url.indexOf('//') === 0;
+          var isLocalApi = url.indexOf('/api/') !== -1 || url.indexOf('localhost') !== -1 || url.indexOf('127.0.0.1') !== -1;
+
+          if (isExternal && !isLocalApi) {
+            var cleanFetch = getCleanFetch();
+            return cleanFetch(input, init);
+          }
+
+          var targetFetch = (assignedFetch === interceptedFetch) ? originalFetch : assignedFetch;
+          return targetFetch(input, init);
+        };
+
         try {
-          var originalFetch = window.fetch;
-          var currentFetch = originalFetch;
           Object.defineProperty(window, 'fetch', {
             get: function() {
-              return currentFetch;
+              return interceptedFetch;
             },
             set: function(val) {
-              currentFetch = val;
+              assignedFetch = val;
             },
             configurable: true,
             enumerable: true
           });
         } catch (e) {
-          console.warn('Failed to redefine window.fetch:', e);
+          console.warn('Failed to define window.fetch via Object.defineProperty:', e);
+          try {
+            window.fetch = interceptedFetch;
+          } catch (err) {
+            console.error('Critical: Could not override fetch:', err);
+          }
         }
       })();
     </script>
