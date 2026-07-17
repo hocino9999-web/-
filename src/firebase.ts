@@ -3,11 +3,44 @@ import { getAuth } from 'firebase/auth';
 import { initializeFirestore } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-}, firebaseConfig.firestoreDatabaseId); /* CRITICAL: The app will break without this line */
-export const auth = getAuth();
+// Build a robust config object with fallback to VITE_ env variables for easy deployment on Netlify / Vercel
+const finalConfig = {
+  apiKey: firebaseConfig?.apiKey || import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: firebaseConfig?.authDomain || import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: firebaseConfig?.projectId || import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: firebaseConfig?.storageBucket || import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: firebaseConfig?.messagingSenderId || import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: firebaseConfig?.appId || import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: firebaseConfig?.measurementId || import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  firestoreDatabaseId: firebaseConfig?.firestoreDatabaseId || import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || '(default)'
+};
+
+let app: any;
+let db: any;
+let auth: any;
+
+try {
+  if (!finalConfig.apiKey) {
+    console.warn('⚠️ Firebase Config warning: apiKey is not defined. Please check your firebase-applet-config.json or setup VITE_FIREBASE_ env variables.');
+  }
+  app = initializeApp(finalConfig);
+  db = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+  }, finalConfig.firestoreDatabaseId);
+  auth = getAuth(app);
+} catch (error) {
+  console.error('❌ Failed to initialize Firebase SDK safely. To prevent a blank white screen, using fallback mock definitions. Real Error:', error);
+  // Provide safe fallback objects so module loading does not crash the entire website
+  app = {} as any;
+  db = {} as any;
+  auth = {
+    currentUser: null,
+    onAuthStateChanged: () => () => {},
+    signOut: async () => {}
+  } as any;
+}
+
+export { db, auth };
 
 export enum OperationType {
   CREATE = 'create',
