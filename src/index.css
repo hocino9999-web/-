@@ -12,6 +12,44 @@
   z-index: 10;
 }
 
+/* Custom Leaflet Tooltip Styles for Kaohsiung History Map */
+.history-map-tooltip {
+  background-color: rgba(28, 25, 23, 0.92) !important;
+  color: #fef3c7 !important;
+  border: 1px solid rgba(217, 119, 6, 0.5) !important;
+  border-radius: 8px !important;
+  font-family: 'Noto Serif TC', serif !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 4px 9px !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25) !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.history-map-tooltip::before {
+  border-top-color: rgba(28, 25, 23, 0.92) !important;
+}
+
+.history-map-tooltip-selected {
+  background-color: #92400e !important;
+  color: #ffffff !important;
+  border-color: #f59e0b !important;
+  font-size: 12px !important;
+  box-shadow: 0 6px 14px rgba(146, 64, 14, 0.4) !important;
+  z-index: 1000 !important;
+}
+
+.history-map-tooltip-selected::before {
+  border-top-color: #92400e !important;
+}
+
+.custom-leaflet-marker-wrapper {
+  background: transparent !important;
+  border: none !important;
+}
+
 @layer base {
   body {
     font-family: 'Plus Jakarta Sans', 'Noto Serif TC', system-ui, -apple-system, sans-serif;
