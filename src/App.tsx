@@ -835,10 +835,82 @@ export default function App() {
               setActiveTab={setActiveTab}
             />
 
-            {/* Latest Articles and Videos Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              {/* Left: Latest Articles (2/3 width on desktop) */}
-              <div className="lg:col-span-8 space-y-6">
+            {/* Latest Videos and Articles Section - Reordered per user request */}
+            <div className="space-y-12">
+              {/* 1. 精選影音導覽 (Top Row - 3 Videos Horizontal) */}
+              <div className="space-y-6">
+                <div className="flex items-center justify-between border-b border-stone-200 pb-3">
+                  <h3 className="font-serif font-bold text-stone-900 text-xl flex items-center gap-2">
+                    <Youtube className="w-5 h-5 text-red-700" />
+                    <span>精選影音導覽</span>
+                  </h3>
+                  <button
+                    onClick={() => setActiveTab('videos')}
+                    className="text-xs font-bold text-red-800 hover:underline flex items-center gap-0.5 cursor-pointer"
+                  >
+                    <span>看更多影片</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {dbVideos.length === 0 ? (
+                  <p className="text-stone-400 py-12 text-center text-sm bg-white rounded-2xl border border-stone-100 shadow-3xs">尚無發布影片。</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {dbVideos.slice(0, 3).map((vid) => (
+                      <div 
+                        key={vid.id}
+                        onClick={() => {
+                          setActiveTab('videos');
+                          setSelectedVideoCategory('全部');
+                          setSelectedVideo(vid);
+                        }}
+                        className="bg-white rounded-2xl border border-stone-150 overflow-hidden shadow-2xs hover:shadow-md cursor-pointer transition-all hover:border-red-800/30 group flex flex-col justify-between"
+                      >
+                        <div>
+                          <div className="aspect-video w-full bg-stone-100 relative overflow-hidden">
+                            <img 
+                              src={vid.imageUrl} 
+                              alt={vid.title} 
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+                              referrerPolicy="no-referrer" 
+                              onError={(e) => {
+                                const target = e.currentTarget;
+                                if (target.src.includes('maxresdefault.jpg')) {
+                                  target.src = target.src.replace('maxresdefault.jpg', 'hqdefault.jpg');
+                                }
+                              }}
+                            />
+                            <div className="absolute inset-0 bg-black/15 flex items-center justify-center group-hover:bg-black/5 transition-colors">
+                              <Youtube className="w-12 h-12 text-red-600 drop-shadow-md group-hover:scale-110 transition-transform" />
+                            </div>
+                          </div>
+                          <div className="p-4 text-left space-y-2">
+                            <span className="text-[10px] font-bold text-red-800 bg-red-50 px-2 py-0.5 rounded-sm font-serif inline-block">
+                              {vid.series}
+                            </span>
+                            <h4 className="font-serif font-bold text-stone-900 text-sm sm:text-base leading-snug group-hover:text-red-800 transition-colors line-clamp-2">
+                              {vid.title}
+                            </h4>
+                            <p className="text-stone-500 text-xs line-clamp-2 leading-relaxed font-serif">
+                              {vid.description}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="px-4 pb-4 pt-2 flex items-center justify-between text-[11px] text-stone-400 border-t border-stone-100">
+                          <span>{vid.date}</span>
+                          <span className="text-red-700 font-bold hover:underline cursor-pointer flex items-center gap-0.5">
+                            觀看影片 →
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 2. 最新發布文章 (Bottom Row - 3 Articles Horizontal) */}
+              <div className="space-y-6">
                 <div className="flex items-center justify-between border-b border-stone-200 pb-3">
                   <h3 className="font-serif font-bold text-stone-900 text-xl flex items-center gap-2">
                     <BookOpen className="w-5 h-5 text-amber-800" />
@@ -848,7 +920,7 @@ export default function App() {
                     onClick={() => setActiveTab('notes')}
                     className="text-xs font-bold text-amber-800 hover:underline flex items-center gap-0.5 cursor-pointer"
                   >
-                    <span>閱讀更多</span>
+                    <span>閱讀更多文章</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -856,22 +928,22 @@ export default function App() {
                 {dbArticles.length === 0 ? (
                   <p className="text-stone-400 py-12 text-center text-sm bg-white rounded-2xl border border-stone-100 shadow-3xs">尚無發布文章，您可以至管理後台新增！</p>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {dbArticles.slice(0, 2).map((note) => (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {dbArticles.slice(0, 3).map((note) => (
                       <article 
                         key={note.id} 
                         onClick={() => setSelectedArticle(note)}
-                        className="bg-white rounded-2xl shadow-xs hover:shadow-md border border-stone-150 overflow-hidden flex flex-col justify-between text-left cursor-pointer transition-all hover:-translate-y-0.5"
+                        className="bg-white rounded-2xl shadow-2xs hover:shadow-md border border-stone-150 overflow-hidden flex flex-col justify-between text-left cursor-pointer transition-all hover:-translate-y-0.5 hover:border-amber-800/30"
                       >
                         <div>
                           <div className="h-44 w-full bg-stone-100 overflow-hidden relative border-b border-stone-100">
-                            <img src={convertGoogleDriveUrl(note.imageUrl)} alt={note.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            <img src={convertGoogleDriveUrl(note.imageUrl)} alt={note.title} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" referrerPolicy="no-referrer" />
                             <span className="absolute top-3 left-3 bg-amber-800 text-amber-50 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-sm shadow-sm">
                               {note.category}
                             </span>
                           </div>
-                          <div className="p-5 space-y-2">
-                            <h4 className="font-serif font-bold text-stone-900 text-base leading-snug hover:text-amber-800 transition-colors line-clamp-2">
+                          <div className="p-4 space-y-2">
+                            <h4 className="font-serif font-bold text-stone-900 text-sm sm:text-base leading-snug hover:text-amber-800 transition-colors line-clamp-2">
                               {note.title}
                             </h4>
                             <p className="text-stone-500 text-xs line-clamp-3 leading-relaxed font-serif">
@@ -879,7 +951,7 @@ export default function App() {
                             </p>
                           </div>
                         </div>
-                        <div className="px-5 pb-5 pt-2 flex items-center justify-between border-t border-stone-50 text-[11px] text-stone-400">
+                        <div className="px-4 pb-4 pt-2 flex items-center justify-between border-t border-stone-50 text-[11px] text-stone-400">
                           <span>{note.date}</span>
                           <span className="text-amber-800 font-bold hover:underline cursor-pointer flex items-center gap-0.5">
                             詳細閱讀 →
@@ -891,86 +963,22 @@ export default function App() {
                 )}
               </div>
 
-              {/* Right: Latest Videos & Fast Path */}
-              <div className="lg:col-span-4 space-y-8">
-                {/* Latest Video */}
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between border-b border-stone-200 pb-3">
-                    <h3 className="font-serif font-bold text-stone-900 text-xl flex items-center gap-2">
-                      <Youtube className="w-5 h-5 text-red-700" />
-                      <span>精選影音導覽</span>
-                    </h3>
-                    <button
-                      onClick={() => setActiveTab('videos')}
-                      className="text-xs font-bold text-red-800 hover:underline flex items-center gap-0.5 cursor-pointer"
-                    >
-                      <span>看更多影片</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  {dbVideos.length === 0 ? (
-                    <p className="text-stone-400 py-12 text-center text-sm bg-white rounded-2xl border border-stone-100 shadow-3xs">尚無發布影片。</p>
-                  ) : (
-                    <div className="space-y-4">
-                      {dbVideos.slice(0, 2).map((vid) => (
-                        <div 
-                          key={vid.id}
-                          onClick={() => {
-                            setActiveTab('videos');
-                            setSelectedVideoCategory('全部');
-                            setSelectedVideo(vid);
-                          }}
-                          className="bg-white rounded-2xl border border-stone-150 overflow-hidden shadow-2xs hover:shadow-xs cursor-pointer transition-all hover:border-red-800/20 group"
-                        >
-                          <div className="aspect-video w-full bg-stone-100 relative overflow-hidden">
-                            <img 
-                              src={vid.imageUrl} 
-                              alt={vid.title} 
-                              className="w-full h-full object-cover" 
-                              referrerPolicy="no-referrer" 
-                              onError={(e) => {
-                                const target = e.currentTarget;
-                                if (target.src.includes('maxresdefault.jpg')) {
-                                  target.src = target.src.replace('maxresdefault.jpg', 'hqdefault.jpg');
-                                }
-                              }}
-                            />
-                            <div className="absolute inset-0 bg-black/15 flex items-center justify-center group-hover:bg-black/5 transition-colors">
-                              <Youtube className="w-10 h-10 text-red-600 drop-shadow-md group-hover:scale-110 transition-transform" />
-                            </div>
-                          </div>
-                          <div className="p-4 text-left">
-                            <span className="text-[10px] font-bold text-red-800 bg-red-50 px-2 py-0.5 rounded-sm font-serif">
-                              {vid.series}
-                            </span>
-                            <h4 className="font-serif font-bold text-stone-900 text-sm leading-snug mt-1.5 group-hover:text-red-800 transition-colors line-clamp-1">
-                              {vid.title}
-                            </h4>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Local Spotlights */}
-                <div className="bg-amber-800/5 rounded-2xl border border-amber-800/10 p-6 space-y-4">
-                  <h4 className="font-serif font-bold text-amber-950 text-base">
-                    📅 預約專屬歷史走讀
+              {/* 3. 預約專屬歷史走讀 Banner */}
+              <div className="bg-amber-900/5 rounded-2xl border border-amber-800/15 p-6 md:p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div className="space-y-1 text-left">
+                  <h4 className="font-serif font-bold text-amber-950 text-lg flex items-center gap-2">
+                    <span>📅 預約專屬歷史走讀</span>
                   </h4>
-                  <p className="text-stone-600 text-xs leading-relaxed font-serif">
-                    星野洋洋特別設計了高雄鹽埕、哈瑪星、左營等各大歷史街廓導覽。您可以隨時點選<strong>「預約走讀」</strong>預約下一場有溫度的城市散步。
+                  <p className="text-stone-600 text-xs md:text-sm leading-relaxed font-serif">
+                    星野洋洋特別設計了高雄鹽埕、哈瑪星、左營等各大歷史街廓導覽。您可以隨時點選預約下一場有溫度的城市散步。
                   </p>
-                  <div className="pt-1">
-                    <button
-                      onClick={() => setActiveTab('calendar')}
-                      className="w-full px-3 py-2.5 bg-amber-850 hover:bg-amber-900 text-white text-center text-xs font-bold rounded-xl transition-all cursor-pointer block"
-                    >
-                      線上預約走讀
-                    </button>
-                  </div>
                 </div>
+                <button
+                  onClick={() => setActiveTab('calendar')}
+                  className="whitespace-nowrap px-6 py-3 bg-amber-800 hover:bg-amber-900 text-white font-bold text-xs md:text-sm rounded-xl shadow-xs transition-all cursor-pointer"
+                >
+                  線上預約走讀
+                </button>
               </div>
             </div>
           </div>
